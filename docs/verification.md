@@ -62,7 +62,7 @@ and the I2C timing come straight out of those documents, not out of thin air.
 | de10nano_top on DE10-Nano | hardware bring-up: colorbars 2026-09-23, plasma 2026-09-25 | `quartus_sh --flow compile de10nano_top`, then `quartus_pgm -c "DE-SoC" -m jtag -o "p;output_files/de10nano_top.sof@2"` | lock LED instant on KEY0 release, blink ~1 Hz, real ADV7513 ACKed all 13 writes, colorbars on a 640x480 monitor; worst slack +14.875/+0.163/+17.747/+0.358/+1.241, TNS 0.000, Slow 1100mV 100C (B16). Plasma build 2026-09-25 (.sof 0x00E40517): worst slack +14.032/+0.271/+16.882/+0.943/+1.241, TNS 0.000, divclk Fmax 72.14 MHz, 2058 ALMs / 3 DSP / 0 M10K bits, boiling plasma full-width on one OLED (B17). D18 build 2026-09-25 (.sof 0x00E4BE7C): worst slack +14.012/+0.168/+16.599/+0.698/+1.241, TNS 0.000, divclk Fmax 72.79 MHz, 2067 ALMs / 3 DSP / 0 M10K bits, DE aligned to the active window, image unchanged on the same OLED (B18). 2026-09-29 flash of the assertion build at a5b8fde: .sof sha256 184215f8..., plasma full-width on a TV, dashboard nominal, same-day observation |
 | apu_cordic + golden model | CORDIC vs Python model | `python3 tb/cordic_golden.py` (24 checks) then `make sim_cordic` (14) | RTL bit-exact to model over all 65536 phases; max |err| vs libm 3.172e-05 <= 2**-14; latency: fill 18 per sim_cordic's iteration convention = 19 system clocks (B18), 1/clk |
 | rv32asm + rv32enc (tools/) | RV32I_Zicsr encoding fidelity, CPU ladder step 2 | `python3 tools/tests/test_rv32asm.py`, `python3 tools/tests/test_rv32enc.py` | 101 + 246 checks, exit code = fail count; 46-row encode/decode round trip; spec-derived scramble anchors; la is pc-relative AUIPC+ADDI (B19); suites seen to fail under three mutations: SLTIU funct3, LA pc, one unpack_b bit |
-| rv32iss (tools/) | OP/OP-IMM, load/store, branch, jump, U-type and FENCE semantics, private memory, CSV retirement/halt trace, schedule-invariant completion | `python3 tools/tests/test_rv32iss.py` (also `make tools-tests`) | 101 checks; rr + scripted + 8 seeded schedules reach ebreak with identical registers and private RAM, straight-line program and looping-bne program (26 retires per run) |
+| rv32iss (tools/) | OP/OP-IMM, load/store, branch, jump, U-type, FENCE and CSR semantics, private memory, CSV retirement/halt trace, schedule-invariant completion | `python3 tools/tests/test_rv32iss.py` (also `make tools-tests`) | 116 checks; rr + scripted + 8 seeded schedules reach ebreak with identical registers and private RAM, straight-line program and looping-bne program (26 retires per run); CSR surface is mhartid only (D21) |
 | make coverage, all five harnesses | merged line/toggle/branch/expr coverage with enforced floors | `make coverage`, also a CI step | 2026-09-29 baseline: line 88.7% (133/150), toggle 87.3% (2465/2824), branch 98.1% (102/104), expr 95.7% (154/161); floors line >= 85 and toggle >= 84, baseline minus margin per B10; per-harness dats merged with verilator_coverage |
 
 
@@ -151,6 +151,33 @@ believing the color, and the copy discarded afterwards. Run by the agent
 - M-G, fence halts instead of retiring: 2 red (the retire row and the ebreak
   follower); the fence.i reserved-encoding row stays green.
 
+### ISS CSR mutations (step 4, isolated /tmp copies)
+
+Predictions written before each run, landing verified by exact-match grep,
+run by the agent 2026-10-03 against the 116-check suite (tree ISS byte-
+identical to the drilled probe).
+
+- N1, reads-gate forced true: 0 red, as predicted. The rd=x0 "shall not
+  read" rule is unobservable in a one-CSR machine: priv 20250508 §2 intro,
+  p. 12: "Standard CSRs do not have side effects on reads." The gate is
+  implemented for RTL parity; the ledger records it as untested, not as
+  coverage.
+- N2, write gate uses the register VALUE instead of its index: 3 red
+  (csrrs_x5_mh_x6_index_gate, csrrsi_x5_mh_u31, csrrci_x5_mh_u1). The
+  first prediction said 2; the hand re-check found csrrci's uimm=1 aliases
+  x1, which the vectors leave at zero, so that gate also flips. Prediction
+  corrected before recording; observed matched the corrected set.
+- N3, write to mhartid ignored instead of trapping (RO semantics flipped,
+  against priv §2.1 p. 12): 6 red, all mhartid write-attempt vectors.
+- N4, mhartid returns 0 on every hart: 1 red (csrrs on hart 1 reads id 1).
+- N5, address gate removed (every CSR reads as hart id): 1 red
+  (csrrs_x5_mstatus_x0).
+- N6, trapping CSR form still writes rd and advances pc: 8 red, every
+  trap vector except mret_reserved_system, which halts in decode before
+  execution and is immune by construction.
+- N8, csrrs treated as always-write: 3 red (csrrs_x5_mh_x0,
+  csrrs_x0_mh_x0, the hart-1 read).
+
 Three ideas the testbenches are built on. docs/decisions.md carries the full
 reasoning behind each.
 
@@ -204,11 +231,10 @@ reasoning behind each.
 - ISS instruction-misaligned reporting deviates from unprivileged volume 2.2
   (p. 25): the spec generates the exception on the taken branch or jump
   itself; the ISS retires the jump and halts at the next fetch, so the halt
-  row carries the target pc and an empty inst_word. Open decision before RTL
-  M1: move the check onto the jump (contract section 9 trace format allows
-  it, pc is the faulting PC and inst_word the fetched word) or keep the
-  fetch-stage convention as an acknowledged deviation. RTL and cosim must
-  match whichever stands.
+  row carries the target pc and an empty inst_word. Decided 2026-10-03
+  (D20): RTL M1 implements the same fetch-stage check. Reopens if a trap
+  vector ever ships, since mepc semantics then make the jump the faulting
+  instruction per unprivileged 2.2 (p. 25).
 - ISS vectors can only retire from a source pc inside the per-hart 32 KiB
   window; an out-of-window fetch halts bus before decode. Two early jump
   rows were amended 2026-10-03 for this (jal_x1_min_m to pc 0x1000, target

@@ -499,3 +499,45 @@ Consequences:
   get the same write-then-toggle scheme and MTBF assignments.
 - Rev 2's LOCK register and shared-memory concurrency suite are dropped; the
   mutation culture transfers to the mailbox handshake and the release gate.
+
+## D20: instruction misalignment is a fetch-stage halt, not a jump-reported exception
+
+2026-10-03. ISS/RTL convention. Status: decided by the owner on the agent
+recommendation; ISS behavior in place since step 3 (d126bf2); reopen
+condition explicit.
+
+Decision: a taken branch or jump to an address not four-byte aligned halts
+the hart at the fetch of the target (pc&3 check before the read), not on the
+jump itself. RTL M1 must match. The trace row is halt:illegal with the target
+pc and an empty inst_word, which contract section 9 already supports.
+
+Rationale: unprivileged 20250508 2.2 (p. 25) reports the exception on the
+jump, but our machine has no trap delivery (no mtvec, halt is terminal), so
+the reporting location only fixes trace-row shape. The fetch-stage check is
+what the committed, drilled ISS does and what a two-stage core with a
+registered read naturally does. Zero re-derivation.
+
+Consequences: the unaligned-base jump vector keeps its two-row shape (retire,
+then halt at the target); a cosim RTL that halts on the jump instead is a
+contract failure, not a detail.
+
+Reopen condition: the day mepc/mcause become real, the spec's semantics make
+the jump the faulting pc; revisit here with a dated correction.
+
+## D21: CSR surface is mhartid only; write attempts and unknown addresses halt illegal
+
+2026-10-03. ISS step 4, RTL M1 obligation. Status: decided by the owner on
+the agent proposal; ISS vectors in the step-4 commit.
+
+Decision: exactly one CSR exists: mhartid 0xF14, read-only, value = hart
+index (priv 20250508 3.1.5 pp. 28-29; MRO row in the §2.1 map, p. 12). Every
+attempted write halts illegal (p. 12: "Attempts to write a read-only register
+raise illegal-instruction exceptions"); every address other than 0xF14 halts
+illegal (non-existent CSR access is reserved, p. 12). Table 7 gating (unpriv
+6.1, pp. 49-50) is fully implemented even where unobservable.
+
+Consequences: hart ID identifies but does not dispatch (contract section 3,
+consistent with D19); devices stay MMIO, nothing else needs a CSR; RTL M1's
+csr unit is a mux to the hart index plus the same gates; the rd=x0 no-read
+rule is mutation-untestable until a side-effecting CSR exists and the ledger
+says so.
