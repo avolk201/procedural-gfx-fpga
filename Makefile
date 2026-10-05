@@ -1,6 +1,6 @@
 # Makefile for procedural-gfx-fpga simulation
 
-RTL = rtl/apu_pkg.sv rtl/apu_vga_timing.sv rtl/apu_cordic.sv rtl/apu_colorbars.sv rtl/apu_plasma.sv rtl/apu_top.sv
+RTL = rtl/apu_pkg.sv rtl/gfx/apu_vga_timing.sv rtl/gfx/apu_cordic.sv rtl/gfx/apu_colorbars.sv rtl/gfx/apu_plasma.sv rtl/gfx/apu_top.sv
 TB  = tb/sim_main.cpp
 OUT = sim_apu_top
 
@@ -9,14 +9,14 @@ sim: $(RTL) $(TB)
 	verilator --cc --exe --build -Wall --top-module apu_top $(RTL) $(TB) -o $(OUT)
 	./obj_dir/$(OUT)
 
-sim_i2c: rtl/i2c_controller.sv tb/sim_i2c.cpp
+sim_i2c: rtl/sys/i2c_controller.sv tb/sim_i2c.cpp
 	@mkdir -p sim
-	verilator --cc --exe --build -Wall --top-module i2c_controller rtl/i2c_controller.sv tb/sim_i2c.cpp -o sim_i2c
+	verilator --cc --exe --build -Wall --top-module i2c_controller rtl/sys/i2c_controller.sv tb/sim_i2c.cpp -o sim_i2c
 	./obj_dir/sim_i2c
 
-sim_config: rtl/adv7513_config.sv rtl/i2c_controller.sv tb/tb_adv7513_config.sv tb/sim_adv7513_config.cpp
+sim_config: rtl/sys/adv7513_config.sv rtl/sys/i2c_controller.sv tb/tb_adv7513_config.sv tb/sim_adv7513_config.cpp
 	@mkdir -p sim
-	verilator --cc --exe --build -Wall --top-module tb_adv7513_config tb/tb_adv7513_config.sv rtl/adv7513_config.sv rtl/i2c_controller.sv tb/sim_adv7513_config.cpp -o sim_adv7513_config
+	verilator --cc --exe --build -Wall --top-module tb_adv7513_config tb/tb_adv7513_config.sv rtl/sys/adv7513_config.sv rtl/sys/i2c_controller.sv tb/sim_adv7513_config.cpp -o sim_adv7513_config
 	./obj_dir/sim_adv7513_config
 
 # Look check for the plasma scene: one frame to sim/plasma_frame.ppm for
@@ -48,24 +48,24 @@ sim/cordic_golden.hex: tb/cordic_golden.py tb/cordic_golden.sha256
 	python3 tb/cordic_golden.py emit sim/cordic_golden.hex
 	shasum -a 256 -c tb/cordic_golden.sha256
 
-sim_cordic: rtl/apu_cordic.sv tb/sim_cordic.cpp sim/cordic_golden.hex
-	verilator --cc --exe --build -Wall --top-module apu_cordic rtl/apu_cordic.sv tb/sim_cordic.cpp -o sim_cordic
+sim_cordic: rtl/gfx/apu_cordic.sv tb/sim_cordic.cpp sim/cordic_golden.hex
+	verilator --cc --exe --build -Wall --top-module apu_cordic rtl/gfx/apu_cordic.sv tb/sim_cordic.cpp -o sim_cordic
 	./obj_dir/sim_cordic
 
 # Lint only (no C++ build)
 lint: $(RTL)
 	verilator --lint-only -Wall --top-module apu_top $(RTL)
 
-lint_i2c: rtl/i2c_controller.sv
-	verilator --lint-only -Wall rtl/i2c_controller.sv
+lint_i2c: rtl/sys/i2c_controller.sv
+	verilator --lint-only -Wall rtl/sys/i2c_controller.sv
 
-lint_top: rtl/apu_pkg.sv rtl/apu_vga_timing.sv rtl/apu_cordic.sv rtl/apu_colorbars.sv rtl/apu_plasma.sv rtl/apu_top.sv rtl/i2c_controller.sv rtl/adv7513_config.sv rtl/pll_25m.sv rtl/de10nano_top.sv
-	verilator --lint-only -Wall --top-module de10nano_top rtl/apu_pkg.sv rtl/apu_vga_timing.sv rtl/apu_cordic.sv rtl/apu_colorbars.sv rtl/apu_plasma.sv rtl/apu_top.sv rtl/i2c_controller.sv rtl/adv7513_config.sv rtl/pll_25m.sv rtl/de10nano_top.sv rtl/sync_reset.sv
+lint_top: rtl/apu_pkg.sv rtl/gfx/apu_vga_timing.sv rtl/gfx/apu_cordic.sv rtl/gfx/apu_colorbars.sv rtl/gfx/apu_plasma.sv rtl/gfx/apu_top.sv rtl/sys/i2c_controller.sv rtl/sys/adv7513_config.sv rtl/sys/pll_25m.sv rtl/sys/de10nano_top.sv
+	verilator --lint-only -Wall --top-module de10nano_top rtl/apu_pkg.sv rtl/gfx/apu_vga_timing.sv rtl/gfx/apu_cordic.sv rtl/gfx/apu_colorbars.sv rtl/gfx/apu_plasma.sv rtl/gfx/apu_top.sv rtl/sys/i2c_controller.sv rtl/sys/adv7513_config.sv rtl/sys/pll_25m.sv rtl/sys/de10nano_top.sv rtl/sys/sync_reset.sv
 
 # apu_cordic gets its own lint as a fast standalone check; lint_top covers
 # it in-tree (instantiated via apu_plasma under apu_top).
-lint_cordic: rtl/apu_cordic.sv
-	verilator --lint-only -Wall --top-module apu_cordic rtl/apu_cordic.sv
+lint_cordic: rtl/gfx/apu_cordic.sv
+	verilator --lint-only -Wall --top-module apu_cordic rtl/gfx/apu_cordic.sv
 
 golden:
 	python3 tb/cordic_golden.py
@@ -102,13 +102,13 @@ coverage: sim/cordic_golden.hex
 	verilator --cc --exe --build -Wall --coverage --top-module apu_top -GSCENE=1 $(RTL) tb/sim_plasma.cpp -o sim_cov_plasma
 	./obj_dir/sim_cov_plasma
 	mv sim/coverage.dat sim/cov/plasma.dat
-	verilator --cc --exe --build -Wall --coverage --top-module i2c_controller rtl/i2c_controller.sv tb/sim_i2c.cpp -o sim_cov_i2c
+	verilator --cc --exe --build -Wall --coverage --top-module i2c_controller rtl/sys/i2c_controller.sv tb/sim_i2c.cpp -o sim_cov_i2c
 	./obj_dir/sim_cov_i2c
 	mv sim/coverage.dat sim/cov/i2c.dat
-	verilator --cc --exe --build -Wall --coverage --top-module tb_adv7513_config tb/tb_adv7513_config.sv rtl/adv7513_config.sv rtl/i2c_controller.sv tb/sim_adv7513_config.cpp -o sim_cov_config
+	verilator --cc --exe --build -Wall --coverage --top-module tb_adv7513_config tb/tb_adv7513_config.sv rtl/sys/adv7513_config.sv rtl/sys/i2c_controller.sv tb/sim_adv7513_config.cpp -o sim_cov_config
 	./obj_dir/sim_cov_config
 	mv sim/coverage.dat sim/cov/config.dat
-	verilator --cc --exe --build -Wall --coverage --top-module apu_cordic rtl/apu_cordic.sv tb/sim_cordic.cpp -o sim_cov_cordic
+	verilator --cc --exe --build -Wall --coverage --top-module apu_cordic rtl/gfx/apu_cordic.sv tb/sim_cordic.cpp -o sim_cov_cordic
 	./obj_dir/sim_cov_cordic
 	mv sim/coverage.dat sim/cov/cordic.dat
 	verilator_coverage --write sim/cov/merged.dat sim/cov/apu.dat sim/cov/plasma.dat sim/cov/i2c.dat sim/cov/config.dat sim/cov/cordic.dat

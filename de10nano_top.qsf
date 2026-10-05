@@ -15,16 +15,16 @@ set_instance_assignment -name SYNCHRONIZATION_REGISTER_CHAIN_LENGTH 2 -to "u_syn
 
 # Source files
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/apu_pkg.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/apu_vga_timing.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/apu_cordic.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/apu_colorbars.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/apu_plasma.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/apu_top.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/i2c_controller.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/adv7513_config.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/pll_25m.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/sync_reset.sv
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/de10nano_top.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/gfx/apu_vga_timing.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/gfx/apu_cordic.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/gfx/apu_colorbars.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/gfx/apu_plasma.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/gfx/apu_top.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sys/i2c_controller.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sys/adv7513_config.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sys/pll_25m.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sys/sync_reset.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sys/de10nano_top.sv
 
 # Timing and pin constraints
 set_global_assignment -name SDC_FILE constraints/timing.sdc
