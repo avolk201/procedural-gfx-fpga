@@ -61,7 +61,7 @@ and the I2C timing come straight out of those documents, not out of thin air.
 | all RTL | zero-warning lint gate | `make lint`, `make lint_i2c` | runs before anything else |
 | de10nano_top on DE10-Nano | hardware bring-up: colorbars 2026-09-23, plasma 2026-09-25 | `quartus_sh --flow compile de10nano_top`, then `quartus_pgm -c "DE-SoC" -m jtag -o "p;output_files/de10nano_top.sof@2"` | lock LED instant on KEY0 release, blink ~1 Hz, real ADV7513 ACKed all 13 writes, colorbars on a 640x480 monitor; worst slack +14.875/+0.163/+17.747/+0.358/+1.241, TNS 0.000, Slow 1100mV 100C (B16). Plasma build 2026-09-25 (.sof 0x00E40517): worst slack +14.032/+0.271/+16.882/+0.943/+1.241, TNS 0.000, divclk Fmax 72.14 MHz, 2058 ALMs / 3 DSP / 0 M10K bits, boiling plasma full-width on one OLED (B17). D18 build 2026-09-25 (.sof 0x00E4BE7C): worst slack +14.012/+0.168/+16.599/+0.698/+1.241, TNS 0.000, divclk Fmax 72.79 MHz, 2067 ALMs / 3 DSP / 0 M10K bits, DE aligned to the active window, image unchanged on the same OLED (B18). 2026-09-29 flash of the assertion build at a5b8fde: .sof sha256 184215f8..., plasma full-width on a TV, dashboard nominal, same-day observation |
 | apu_cordic + golden model | CORDIC vs Python model | `python3 tb/cordic_golden.py` (24 checks) then `make sim_cordic` (14) | RTL bit-exact to model over all 65536 phases; max |err| vs libm 3.172e-05 <= 2**-14; latency: fill 18 per sim_cordic's iteration convention = 19 system clocks (B18), 1/clk |
-| rv32asm + rv32enc (tools/) | RV32I_Zicsr encoding fidelity, CPU ladder step 2 | `python3 tools/tests/test_rv32asm.py`, `python3 tools/tests/test_rv32enc.py` | 101 + 246 checks, exit code = fail count; 46-row encode/decode round trip; spec-derived scramble anchors; la is pc-relative AUIPC+ADDI (B19); suites seen to fail under three mutations: SLTIU funct3, LA pc, one unpack_b bit |
+| rv32asm + rv32enc (tools/) | RV32I_Zicsr encoding fidelity, CPU ladder step 2 | `python3 tools/tests/test_rv32asm.py`, `python3 tools/tests/test_rv32enc.py` | 111 + 276 checks, exit code = fail count; 46-row encode/decode round trip; spec-derived scramble anchors; la is pc-relative AUIPC+ADDI (B19); debt vectors closed 2026-10-05 (jalr three-operand x3, auipc nonzero x2, fence masks x5), words shared with the ISS anchors; suites seen to fail under three mutations: SLTIU funct3, LA pc, one unpack_b bit |
 | rv32iss (tools/) | OP/OP-IMM, load/store, branch, jump, U-type, FENCE and CSR semantics, private memory, CSV retirement/halt trace, schedule-invariant completion | `python3 tools/tests/test_rv32iss.py` (also `make tools-tests`) | 116 checks; rr + scripted + 8 seeded schedules reach ebreak with identical registers and private RAM, straight-line program and looping-bne program (26 retires per run); CSR surface is mhartid only (D21) |
 | make coverage, all five harnesses | merged line/toggle/branch/expr coverage with enforced floors | `make coverage`, also a CI step | 2026-09-29 baseline: line 88.7% (133/150), toggle 87.3% (2465/2824), branch 98.1% (102/104), expr 95.7% (154/161); floors line >= 85 and toggle >= 84, baseline minus margin per B10; per-harness dats merged with verilator_coverage |
 
@@ -228,6 +228,12 @@ reasoning behind each.
   alignment gap closed with D18 (19e6272); the enforcing check runs in
   make sim.
 - The Python tools suite runs in CI via `make tools-tests`.
+- The rtl/ subfolder move (2026-10-05) rewrote the qsf SYSTEMVERILOG_FILE
+  list and the Makefile paths. Verilator-proven: regress, xprop, coverage
+  green with floors and measurements identical to baseline. Quartus-pending:
+  the next box compile's Analysis and Synthesis is the proof, the B8
+  landmine shape; file list cross-checked both ways (all 11 entries resolve,
+  no rtl .sv absent from the qsf).
 - ISS instruction-misaligned reporting deviates from unprivileged volume 2.2
   (p. 25): the spec generates the exception on the taken branch or jump
   itself; the ISS retires the jump and halts at the next fetch, so the halt

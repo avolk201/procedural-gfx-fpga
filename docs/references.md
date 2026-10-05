@@ -12,7 +12,7 @@ can be traced to a page.
 - Relied on: START/STOP definitions (SDA transitions while SCL high), data
   validity rule (SDA stable while SCL high), 9th-clock ACK/NACK behavior,
   open-drain/wired-AND electrical model, controller-target terminology.
-- Used by: rtl/i2c_controller.sv contract header, tb/sim_i2c.cpp BFM rules.
+- Used by: rtl/sys/i2c_controller.sv contract header, tb/sim_i2c.cpp BFM rules.
 
 ## VESA Display Monitor Timing (DMT) standard
 - Where: vesa.org (free download of the DMT spec)
@@ -57,8 +57,8 @@ can be traced to a page.
   sec 4.7 (power down bit 0x41[6]), sec 4.3.6 (DE/HS/VS generation: the
   separate-syncs method passes the provided timing through when 0x17[0] DE
   generator and 0x41[1] sync adjustment are off; basis for B17/D18).
-- Used by: rtl/adv7513_config.sv ROM (per-entry citations) and its tb golden
-  table, POR length in rtl/de10nano_top.sv, tb constants (DEV_ADDR_OK).
+- Used by: rtl/sys/adv7513_config.sv ROM (per-entry citations) and its tb golden
+  table, POR length in rtl/sys/de10nano_top.sv, tb constants (DEV_ADDR_OK).
 - RESOLVED via board schematic (de10-nano-schematic-711128.pdf, local):
   U34 pin 22 (PD/AD) strapped low, silkscreen note "Default: I2C Address
   0x72/0x73" = 7-bit 0x39. Also: HDMI_HPD net runs to connector pin 19

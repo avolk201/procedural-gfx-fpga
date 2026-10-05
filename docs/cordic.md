@@ -13,7 +13,7 @@ The three-file split, and which is the oracle:
   exact fixed-point model. It self-tests against `math.sin`/`math.cos` and
   re-derives every hardcoded constant on each run, so a stale constant fails the
   model before it can mislead the RTL.
-- `rtl/apu_cordic.sv` is the pipelined hardware.
+- `rtl/gfx/apu_cordic.sv` is the pipelined hardware.
 - `tb/sim_cordic.cpp` drives all 2**16 phases through the RTL and compares to
   the model's generated table. A mismatch is an RTL bug by construction.
 

@@ -66,15 +66,24 @@ hart1 segment (APU service):
 | 0x4000_0000 | 128 B | fabric flops | hart1 regif, section 5; audio device map extends it in Phase 6 |
 
 - Decided: 64 KB total RAM (2 x 32 KB), Harvard per hart, two-stage cores.
-  The 24/8 split per hart is the working default; final ratios OPEN
-  (section 10).
+  The 24/8 split per hart is final (2026-10-05; section 10 item closed):
+  code fit is the axis, not silicon; 16/16 costs the identical 64 M10K
+  blocks.
+- Stack placement (decided 2026-10-05): SP resets to 0x0000_8000 (top of
+  D-RAM, full decrement), bss grows up from 0x6000. Overflow needs no
+  guard logic: a store at or past 0x8000 falls in the decode hole and
+  bus-halts, which the ISS already models (rv32iss mem_write
+  fall-through). The M1 sweep forces it and expects the halt.
 - M10K reads are synchronous (registered address and data paths; CV-5V2
   ch. 2 read-during-write sections), which is why the cores are two-stage
   from day one.
 - Budget, measured (D18 build fit.summary): M10K total 5,662,720 bits,
-  currently 0 used; the four RAMs above take 524,288 bits (9.3%). ALMs
-  2,067/41,910 (5%), DSP 3/112. Raycaster textures and audio buffers come
-  out of the remaining ~5.1 Mbit; this table is the running budget.
+  currently 0 used; the four RAMs above take 524,288 bits payload, which
+  packs to 64 of 553 M10K blocks (11.6%; byte-enable mode stores 10 bits
+  per byte). ALMs 2,067/41,910 (5%), DSP 3/112. Raycaster textures and
+  audio buffers come out of the remaining 489 blocks, ~500 KiB
+  byte-enabled: 122 textures at 64x64 RGB332, or 30 at 128x128. This
+  table is the running budget.
 - Access rules: 32-bit data and address; byte/half writes by lane mask;
   unaligned access traps.
 
@@ -246,7 +255,8 @@ it is defined.
    the tb asserts hart0 cannot reach SCENE_SELECT).
 5. RTL, two-stage harts (decided): milestone M1 is hart0 alone through the
    ISA sweep; M2 adds hart1, the mailbox, and the protocol suite. Lint -Wall
-   clean.
+   clean. Tree layout decided 2026-10-05: rtl/apu_pkg.sv at the rtl root,
+   rtl/gfx/ and rtl/sys/ populated, rtl/cpu/ created with M1.
 6. Integration tb: hart1 writes SCENE_SELECT and the rendered frame changes;
    hart0 reads FRAME_COUNT advancing; SOF-sampling claims measured; camera
    registers when the raycaster lands.
@@ -274,10 +284,7 @@ available; both are empty when unavailable. Halt rows are emitted for
 
 ## 10. OPEN (owner)
 
-- Per-hart I/D ratios (working default 24 KB / 8 KB) and stack placement.
 - Mailbox depth: single slot v1 vs small FIFO.
 - M extension timing: after M1 or after M2.
-- rtl/ subfolder layout; proposal: apu_pkg.sv at root, rtl/gfx/, rtl/sys/,
-  rtl/cpu/ created with M1.
 - First mailbox message set (what the game hart actually asks the APU hart
   for; define with the first game, not before).
