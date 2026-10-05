@@ -7,12 +7,11 @@ Device addresses begin at 0x40000000 and are delegated to the machine's
 device callback. Retirement records are appended by ``step`` in execution
 order, so interleaved harts share one deterministic trace stream.
 
-halt record rather than escape from a cosimulation run.
 This increment executes the RV32I OP, OP-IMM, load, store, branch, jump,
-U-type, and FENCE instruction families. Other legal instruction families
-raise NotImplementedError until added. When a family is implemented, its
-reserved encodings must decode to an ``illegal`` halt record rather than
-escape from a cosimulation run.
+U-type, FENCE, and CSR instruction families. Other legal instruction
+families raise NotImplementedError until added. When a family is
+implemented, its reserved encodings must decode to an ``illegal`` halt
+record rather than escape from a cosimulation run.
 """
 
 import random
@@ -39,6 +38,8 @@ BRANCHES = {
     'bgeu': lambda a, b: a >= b,
 }
 JUMPS = ('jal', 'jalr')
+CSR_MHARTID = 0xF14
+CSRS = ('csrrw', 'csrrs', 'csrrc', 'csrrwi', 'csrrsi', 'csrrci')
 
 
 def w32(value):
@@ -267,6 +268,21 @@ class Machine:
             hart.pc = w32(pc + 4)
             self.steps += 1
             self._record_retirement(hart_id, pc, word, 0, 0)
+            if self.steps >= self.max_steps:
+                self._halt_at_budget()
+            return True
+        elif mnemonic in CSRS:
+            operand = instruction_fields['rs1']
+            writes = mnemonic in ('csrrw', 'csrrwi') or operand != 0
+            reads = (mnemonic not in ('csrrw', 'csrrwi')) or rd != 0
+            if instruction_fields['imm12'] != CSR_MHARTID or writes:
+                self._record_halt(hart_id, 'illegal', pc, word)
+                return False
+            if reads:
+                hart.reg_write(rd, hart.hart_id)
+            hart.pc = w32(pc + 4)
+            self.steps += 1
+            self._record_retirement(hart_id, pc, word, rd, hart.reg_read(rd))
             if self.steps >= self.max_steps:
                 self._halt_at_budget()
             return True

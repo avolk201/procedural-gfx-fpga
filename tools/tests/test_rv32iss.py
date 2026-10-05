@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.rv32enc import ENC, pack_i, pack_r, pack_s, pack_shift_i
+from tools.rv32enc import ENC, pack_i, pack_r, pack_s, pack_shift_i, pack_z
 from tools.rv32iss import (
     DEVICE_BASE, HALT_REASONS, RAM_BYTES, Hart, Machine, decode_instruction,
 )
@@ -108,6 +108,30 @@ U_VECTORS = (
     ('auipc_x5_p12345', 0x12345297, 0x00001000, 5, 0x12346000),
     ('auipc_x5_m1', 0xFFFFF297, 0x00001000, 5, 0x00000000),
     ('auipc_x6_maxneg', 0x80000317, 0x00000000, 6, 0x80000000),
+)
+
+SENTINEL = 0xDEAD5E57
+MHARTID = 0xF14
+CSR_PC = 0x00001000
+
+CSR_READ_VECTORS = (
+    ('csrrs_x5_mh_x0', pack_z(5, MHARTID, 0b010, 0), 5),
+    ('csrrc_x5_mh_x0', pack_z(5, MHARTID, 0b011, 0), 5),
+    ('csrrsi_x5_mh_u0', pack_z(5, MHARTID, 0b110, 0), 5),
+    ('csrrci_x5_mh_u0', pack_z(5, MHARTID, 0b111, 0), 5),
+    ('csrrs_x0_mh_x0', pack_z(0, MHARTID, 0b010, 0), 0),
+)
+
+CSR_TRAP_VECTORS = (
+    ('csrrw_x5_mh_x6', pack_z(5, MHARTID, 0b001, 6)),
+    ('csrrw_x0_mh_x6', pack_z(0, MHARTID, 0b001, 6)),
+    ('csrrwi_x5_mh_u0', pack_z(5, MHARTID, 0b101, 0)),
+    ('csrrs_x5_mh_x6_index_gate', pack_z(5, MHARTID, 0b010, 6)),
+    ('csrrsi_x5_mh_u31', pack_z(5, MHARTID, 0b110, 31)),
+    ('csrrci_x5_mh_u1', pack_z(5, MHARTID, 0b111, 1)),
+    ('csrrs_x5_mstatus_x0', pack_z(5, 0x300, 0b010, 0)),
+    ('csrrw_x0_zero_addr', pack_z(0, 0x000, 0b001, 0)),
+    ('mret_reserved_system', 0x30200073),
 )
 
 
@@ -478,6 +502,33 @@ def selftest():
         check(f'{name} writes and retires', retired and
               hart.pc == pc + 4 and hart.reg_read(rd) == value and
               machine.trace == [retire_row(pc, word, rd, value)])
+
+    for name, word, rd in CSR_READ_VECTORS:
+        machine, hart, retired = run_vector(word, CSR_PC, {5: SENTINEL})
+        check(f'{name} reads hart id and retires', retired and
+              hart.pc == CSR_PC + 4 and hart.reg_read(rd) == 0 and
+              machine.steps == 1 and
+              machine.trace == [retire_row(CSR_PC, word, rd, 0)])
+
+    word = pack_z(5, MHARTID, 0b010, 0)
+    machine = Machine()
+    hart = machine.harts[1]
+    hart.pc = CSR_PC
+    hart.mem[CSR_PC:CSR_PC + 4] = word.to_bytes(4, 'little')
+    retired = machine.step(1)
+    check('csrrs on hart 1 reads id 1', retired and hart.x[5] == 1 and
+          hart.pc == CSR_PC + 4 and machine.steps == 1 and
+          machine.trace == [f'1,{CSR_PC:08x},{word:08x},5,00000001,,,,'])
+
+    for name, word in CSR_TRAP_VECTORS:
+        machine, hart, retired = run_vector(word, CSR_PC,
+                                            {5: SENTINEL, 6: 0})
+        check(f'{name} traps illegal without retiring', not retired and
+              hart.halted == 'illegal' and hart.pc == CSR_PC and
+              hart.reg_read(5) == SENTINEL and machine.steps == 0 and
+              machine.trace == [
+                  f'0,{CSR_PC:08x},{word:08x},,,halt:illegal,,,'
+              ])
 
     machine = loop_machine()
     machine.run('rr')
