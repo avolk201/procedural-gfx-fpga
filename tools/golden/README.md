@@ -15,6 +15,10 @@ Files, per hart (`hart0`, `hart1`):
 - `.state.txt`: final `x0`-`x31`, `pc`, `steps`, `halt`, `ram_sha256` over
   the full 32 KiB private RAM. This is the M1 scoreboard target: RTL must
   reproduce every byte.
+- `.ram.bin`: the final RAM as raw bytes. The harness byte-compares this
+  and reports the first bad address, which diagnoses better than a hash
+  match; the state-file hash stays as the ISS-side drift guard (they
+  cross-check: sha256 of the bin equals `ram_sha256`).
 
 Protocol: PASS writes `0x50415353` at `0x6000`, FAIL writes `0x4641494c`
 at `0x6000` then ebreaks. Every check failure paths to `fail`, so a broken
@@ -50,8 +54,9 @@ fetch halt) are NOT in these sweeps: a halt ends the program and no golden
 continuation exists; those stay pinned by the unit vectors in
 tools/tests/test_rv32iss.py.
 
-Status: the expected table and the slot assignments are a 2026-10-05
-derivation, cross-checked against the ISS and an independent raw-arithmetic
-script (26/26 agree). Per the two-bookkeeper protocol they are not golden
-until the page re-derivation pass confirms each word against the printed
-sections. The ISS they run on is itself proven by the 116-check unit suite.
+Status: GOLDEN as of 2026-10-10. Both derivation legs agree with the
+literals and the fixtures: the raw-arithmetic script (2026-10-05) and the
+printed-page re-derivation with per-slot citations (2026-10-10,
+DERIVATION.md in this directory). Any change to a slot re-runs both legs
+before the fixtures regenerate. The ISS these ran on is proven by the
+116-check unit suite.

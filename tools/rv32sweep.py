@@ -13,6 +13,9 @@ Outputs per hart in tools/golden:
   <hart>.hex          flat $readmemh image, one lowercase word per line
   <hart>.trace.csv    ISS golden trace, frozen nine-field format, no header
   <hart>.state.txt    final x0-x31, RAM sha256, final pc, steps, halt
+  <hart>.ram.bin      final RAM bytes, raw 32 KiB; the harness compares
+                      this byte-for-byte and reports the first bad address,
+                      which beats a hash match for diagnosis
 
 Assumption the fixtures encode, to be confirmed at RTL M1: the load port
 reaches the I-RAM array (expected table at 0x1000 is read with lw). D-RAM
@@ -80,14 +83,14 @@ def build(name):
     state += f'halt=ebreak\n'
     state += f'ram_sha256={hashlib.sha256(bytes(hart.mem)).hexdigest()}\n'
     return {'hex': hexfile.read_text(), 'trace.csv': trace,
-            'state.txt': state}
+            'state.txt': state}, bytes(hart.mem)
 
 
 def main():
     check = '--check' in sys.argv[1:]
     failures = []
     for name in SWEEPS:
-        artifacts = build(name)
+        artifacts, ram_bytes = build(name)
         for suffix, text in artifacts.items():
             path = GOLDEN / f'{name}.{suffix}'
             if check:
@@ -95,8 +98,14 @@ def main():
                     failures.append(str(path))
             else:
                 path.write_text(text)
+        ram_path = GOLDEN / f'{name}.ram.bin'
+        if check:
+            if ram_path.read_bytes() != ram_bytes:
+                failures.append(str(ram_path))
+        else:
+            ram_path.write_bytes(ram_bytes)
         if not check:
-            print(f'{name}: PASS marker, {Machine.__name__} state captured')
+            print(f'{name}: PASS marker, state captured')
     if check and failures:
         print('goldens drifted: ' + ', '.join(failures), file=sys.stderr)
         return 1
