@@ -261,6 +261,36 @@ it is defined.
 4b. TB completion convention: Sweep programs must end in an ebreak; 
     The TBs must mark all outputs along with the final state of each register and RAM block against the golden benchmark. Otherwise, per-instruction tracing can be implemented, with pre and post instruction states for comparison.
 
+4c. M1 core interface for the harness (decided 2026-10-10, D23):
+    - Module rv32_core in rtl/cpu/, parameters POR_CYCLES (board default
+      2**24; simulation overrides with -GPOR_CYCLES, same mechanism as
+      -GSCENE) and FIRMWARE0 (the $readmemh image path).
+    - clk_i is the clk_50m domain; rst_n_i is active-low, deassertion
+      synchronized per house style, assertion raw.
+    - Retire tap, at most one retirement per clock: retire_valid_o,
+      retire_pc_o, retire_word_o, retire_rd_o, retire_rd_value_o,
+      retire_mem_valid_o, retire_mem_store_o, retire_mem_sign_o (loads
+      only), retire_mem_size_o (bytes: 1, 2, or 4), retire_mem_addr_o,
+      retire_mem_value_o (loads: raw transferred bytes right-justified;
+      stores: the lane-placed word). The harness rebuilds the section 9
+      nine-field rows from these signals; the mnemonic comes from
+      (store, size, sign).
+    - Halt tap, latching and terminal: halt_valid_o, halt_reason_o
+      (0=ebreak, 1=ecall, 2=illegal, 3=bus; budget is an ISS artifact and
+      the harness watchdog covers hangs), halt_pc_o, halt_word_valid_o,
+      halt_word_o.
+    - RAMs inferred inside the core: I-RAM 6144x32 from
+      $readmemh(FIRMWARE0), D-RAM 2048x32 zero at configuration. The
+      internal memory bus keeps section 6 naming (req/addr/wdata/wstrb/we,
+      rdata/ack) so the Phase 8 loader attaches without a rename, and the
+      load port reads the full 0x0000-0x7FFF span per section 4.
+    - Final-state scoring without backdoors: the harness replays retire
+      rows to rebuild x0-x31 and applies store rows to the initial image
+      to rebuild RAM, byte-compares tools/golden/<hart>.ram.bin, and
+      string-compares the row stream to <hart>.trace.csv. The section 9
+      format is the single source of truth; nothing inside the core is
+      marked public for a tb.
+
 5. RTL, two-stage harts (decided): milestone M1 is hart0 alone through the
    ISA sweep; M2 adds hart1, the mailbox, and the protocol suite. Lint -Wall
    clean. Tree layout decided 2026-10-05: rtl/apu_pkg.sv at the rtl root,

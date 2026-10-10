@@ -544,7 +544,8 @@ says so.
 ## D22: sweep scoreboard is final state, marker protocol, expected table in I-RAM
 
 2026-10-05. tools/sweeps, tools/golden, contract 4b made concrete. Status:
-ISS-verified 2026-10-05; golden acceptance pending the page re-derivation.
+ISS-verified 2026-10-05; expected table golden 2026-10-10 via the two-leg
+derivation record (tools/golden/DERIVATION.md).
 
 Decision: the ISA sweep scores by final state, not by in-program halts.
 PASS writes 0x50415353 at 0x6000 then ebreaks; every check that fails
@@ -568,3 +569,40 @@ word, the word changes in tools/sweeps and the goldens regenerate; the
 device-callback finish signal that the roadmap sketch allowed is not needed
 under this convention; the Phase 8 loader must not write the I-RAM table
 region at runtime (single-writer discipline: config-time init only).
+
+## D23: M1 core interface: trace taps, terminal halt, POR parameter, no scoring backdoors
+
+2026-10-10. Contract 4c, rtl/cpu/rv32_core.sv stub, tb/sim_cpu.cpp. Status:
+decided; harness seen red against the stub the same day (watchdog FAIL at
+24,400 cycles, build -Wall clean, exit nonzero).
+
+Decision: the core's only observation surface is a retire tap plus a
+latching halt tap (signal list and encodings in contract 4c). The harness
+rebuilds the frozen section 9 rows from the taps, replays them into the
+register file and RAM, and byte-compares the goldens. POR_CYCLES is a
+parameter (board default 2**24; simulation overrides with -GPOR_CYCLES=8).
+RAMs live inside the core, the internal memory bus keeps section 6 naming,
+and sim_cpu stays out of regress and coverage until it goes green.
+
+Rationale:
+- Trace-only scoring keeps the RTL clean: a memory backdoor would need
+  verilator-public marks on the RAM arrays, which is test-only intrusion
+  into a synthesizable file. Replay from the frozen format also proves the
+  format sufficient for cosim, which is what it was frozen for.
+- ram.bin byte comparison over hashing in C++: the first mismatching
+  address diagnoses better than a hash inequality, and no crypto code
+  enters the tb. The state-file sha256 remains the ISS-side drift guard,
+  and the two cross-check (sha256 of the bin equals ram_sha256).
+- POR as a parameter follows the -GSCENE precedent: the board's 335 ms
+  release is 16.7M cycles against a sweep of about 300 instructions, over
+  50x dead time in every run; the override leaves the board default
+  untouched in the source.
+- Red against the stub before RTL is house rule 4 lifted to the harness:
+  the watchdog FAIL is the recorded artifact, and the watchdog bound is a
+  hang detector with 20x margin, not a scoreboard (D11).
+
+Consequences: M1 must drive the taps so the row stream rebuilds exactly,
+mnemonics included from (store, size, sign); halt_reason_o is 2 bits over
+ebreak/ecall/illegal/bus, budget stays an ISS artifact; the M2 harness
+replicates per hart with the hart column constant per instance; coverage
+wiring waits for green, and the floors get re-measured then, not assumed.
