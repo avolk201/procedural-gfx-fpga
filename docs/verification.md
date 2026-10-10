@@ -231,10 +231,12 @@ reasoning behind each.
 - The Python tools suite runs in CI via `make tools-tests`.
 - The rtl/ subfolder move (2026-10-05) rewrote the qsf SYSTEMVERILOG_FILE
   list and the Makefile paths. Verilator-proven: regress, xprop, coverage
-  green with floors and measurements identical to baseline. Quartus-pending:
-  the next box compile's Analysis and Synthesis is the proof, the B8
-  landmine shape; file list cross-checked both ways (all 11 entries resolve,
-  no rtl .sv absent from the qsf).
+  green with floors and measurements identical to baseline. Quartus-proven
+  2026-10-10: full box compile of the synced tree exited 0, Fitter
+  Successful 14:41:35, zero Critical Warnings across reports, 2,068/41,910
+  ALMs and worst setup +13.868 ns (100C) / +13.756 ns (-40C), identical to
+  the a5b8fde baseline. Same netlist from moved paths is the proof; the B8
+  landmine is closed.
 - ISS instruction-misaligned reporting deviates from unprivileged volume 2.2
   (p. 25): the spec generates the exception on the taken branch or jump
   itself; the ISS retires the jump and halts at the next fetch, so the halt
