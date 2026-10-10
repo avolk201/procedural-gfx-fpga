@@ -63,6 +63,7 @@ and the I2C timing come straight out of those documents, not out of thin air.
 | apu_cordic + golden model | CORDIC vs Python model | `python3 tb/cordic_golden.py` (24 checks) then `make sim_cordic` (14) | RTL bit-exact to model over all 65536 phases; max |err| vs libm 3.172e-05 <= 2**-14; latency: fill 18 per sim_cordic's iteration convention = 19 system clocks (B18), 1/clk |
 | rv32asm + rv32enc (tools/) | RV32I_Zicsr encoding fidelity, CPU ladder step 2 | `python3 tools/tests/test_rv32asm.py`, `python3 tools/tests/test_rv32enc.py` | 111 + 276 checks, exit code = fail count; 46-row encode/decode round trip; spec-derived scramble anchors; la is pc-relative AUIPC+ADDI (B19); debt vectors closed 2026-10-05 (jalr three-operand x3, auipc nonzero x2, fence masks x5), words shared with the ISS anchors; suites seen to fail under three mutations: SLTIU funct3, LA pc, one unpack_b bit |
 | rv32iss (tools/) | OP/OP-IMM, load/store, branch, jump, U-type, FENCE and CSR semantics, private memory, CSV retirement/halt trace, schedule-invariant completion | `python3 tools/tests/test_rv32iss.py` (also `make tools-tests`) | 116 checks; rr + scripted + 8 seeded schedules reach ebreak with identical registers and private RAM, straight-line program and looping-bne program (26 retires per run); CSR surface is mhartid only (D21) |
+| rv32sweep + goldens (tools/) | self-checking hart0/hart1 sweeps; ISS final-state and trace fixtures that RTL M1 must reproduce byte for byte | `python3 tools/rv32sweep.py` (`--check` mode for reproducibility/CI) | both harts reach ebreak with PASS marker 0x50415353; 26 result slots; 298-row nine-field traces; RAM sha256 plus x0-x31 captured; generator refuses FAIL; corrupting the sra expected reddened slot 7 with exit 8 before fixtures shipped |
 | make coverage, all five harnesses | merged line/toggle/branch/expr coverage with enforced floors | `make coverage`, also a CI step | 2026-09-29 baseline: line 88.7% (133/150), toggle 87.3% (2465/2824), branch 98.1% (102/104), expr 95.7% (154/161); floors line >= 85 and toggle >= 84, baseline minus margin per B10; per-harness dats merged with verilator_coverage |
 
 
@@ -119,15 +120,15 @@ All returned nonzero and were restored by discarding the temporary copy.
    skipping the access kills the side effect and the trap together.
 9. M9, remove the write-value right-justify in dispatch_device: 1 red check
    (`device byte store right-justifies dirty rs2`). Entries 8 and 9 were run
-   by the agent in isolated /tmp copies on 2026-09-29, predictions written
+   in isolated /tmp copies on 2026-09-29, predictions written
    before each run, copies discarded afterwards.
 
 ### ISS control-transfer mutations (step 3, isolated /tmp copies)
 
 Predictions were written before each run. Each mutation was applied alone to
 a fresh copy of `tools/`, landing verified by exact-match grep before
-believing the color, and the copy discarded afterwards. Run by the agent
-2026-10-03 against the 101-check suite.
+believing the color, and the copy discarded afterwards. Run 2026-10-03
+against the 101-check suite.
 
 - M-A, taken branch target as pc+4+imm: 8 red (7 taken vectors plus the
   looping-bne schedule-invariance check).
@@ -154,7 +155,7 @@ believing the color, and the copy discarded afterwards. Run by the agent
 ### ISS CSR mutations (step 4, isolated /tmp copies)
 
 Predictions written before each run, landing verified by exact-match grep,
-run by the agent 2026-10-03 against the 116-check suite (tree ISS byte-
+run 2026-10-03 against the 116-check suite (tree ISS byte-
 identical to the drilled probe).
 
 - N1, reads-gate forced true: 0 red, as predicted. The rd=x0 "shall not
@@ -247,6 +248,15 @@ reasoning behind each.
   0xFFF01000; jal_x1_wrap_fwd to pc 0x7FFC, link 0x8000, target 0x8004).
   The full 2^32 link wrap is unreachable in the ISS and becomes a live case
   only in RTL cosim against the full address map.
+- Sweep goldens are ISS-verified, not yet two-bookkeeper golden: the 26
+  expected words in tools/sweeps are a 2026-10-05 derivation cross-checked
+  against the model and an independent raw-arithmetic script (26/26 agree).
+  They become golden when the page re-derivation pass confirms each word
+  against the printed sections.
+- The sweep fixtures assume the load port reads the I-RAM array (expected
+  table at 0x1000, contract section 4 access rules pending confirmation at
+  M1). A strict Harvard core without that port fails the sweep by
+  construction; the fix is the table's home, not the protocol.
 - Coverage is merged line and toggle across the five harnesses with floors
   (make coverage, CI step); branch and expr are reported but not floored.
   The 17 uncovered line points at baseline are not itemized yet; itemize

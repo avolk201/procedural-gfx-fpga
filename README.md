@@ -27,7 +27,8 @@ the board 2026-09-25. There is still no RV32 core.
 | ADV7513 config walker | `make sim_config` | 7 checks, halted-on-error path included | console |
 | Timing closure (D18 build, 9f5dc7b) | `quartus_sh --flow compile` on Quartus 25.1 | worst setup +14.012 / hold +0.168 / recovery +16.599 / removal +0.698 / mpw +1.241 ns, TNS 0.000, Slow 1100mV 100C; divclk Fmax 72.79 MHz; 2,067/41,910 ALMs, 3/112 DSP, 0 M10K, 1/6 PLL | sta.rpt |
 | Runs on hardware | `quartus_pgm -c "DE-SoC" -m jtag -o "p;output_files/de10nano_top.sof@2"` | colorbars 2026-09-23; plasma on OLED 2026-09-25, .sof 0x00E4BE7C, unchanged after D18 | v0.1.0 photo; docs/plasma-bring-up.mp4, sha256 995ec06c... |
-| CPU tooling, no core | `python3 tools/tests/test_rv32asm.py`, `python3 tools/tests/test_rv32enc.py` | 101 + 246 checks vs spec-derived vectors (unpriv vol. 20250508 ch. 35) | console |
+| CPU tooling, no core | `python3 tools/tests/test_rv32asm.py`, `python3 tools/tests/test_rv32enc.py`, `python3 tools/tests/test_rv32iss.py` | 111 + 276 + 116 checks vs spec-derived vectors (unpriv vol. 20250508); ISS covers base RV32I plus Zicsr | console |
+| ISA sweep goldens, the RTL M1 targets | `python3 tools/rv32sweep.py` (`--check` for drift) | both harts PASS marker; 298-row frozen-format traces; 32 regs plus RAM sha256 captured; one corrupted expected word flipped the marker to FAIL and reported slot 7, exit 8 (proven bite, /tmp copy, 2026-10-05) | tools/golden/ |
 
 Not done: no RV32 core (contract and ladder in docs/cpu-contract.md), no
 interactive demo, no I2S, no SD.
@@ -142,8 +143,8 @@ What was not measured, stated as absence:
    bit-width argument); it now drives the plasma scene at the top.
 2. Real scenes: the plasma is in; next is a DDA raycaster with textures.
 3. The namesake: own RV32 core and assembler, memory-mapped scene registers.
-   The assembler, its encoding tables and their golden suites are in
-   (`tools/`); the two-hart core is next, contract first
+   The assembler, encoding tables, the two-hart ISS and the sweep goldens
+   are in (`tools/`); the two-hart core is next, contract first
    ([docs/cpu-contract.md](docs/cpu-contract.md)).
 4. Storage: SPI SD card with a flat container format, the cartridge.
 5. Games: an interactive raycaster demo, then small original games.

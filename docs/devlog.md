@@ -342,7 +342,7 @@ committed as docs/plasma-bring-up.mov (6d1e9ab), re-encoded to
 docs/plasma-bring-up.mp4 (640x360, 30 fps, 588044 bytes) because GitHub
 would not display the 4.8 MB mov inline.
 
-Initial suspicion (the agent session's, written down before the flash per
+Initial suspicion (written down before the flash per
 rule 5): the scene contract delays de_o by the pipeline depth, so at depth 18
 the burst spans h_cnt [18, 658) while hsync is low over [656, 752).
 Predicted: an 18 px blank band at the left edge, the right 18 columns
@@ -535,7 +535,7 @@ exception, reported on the jump itself.
 
 Initial suspicion: the probe harness was wrong about the window (the harness
 is the contract; it was right); the mutation prediction was wrong (the
-vector was); the agent's floated fence word was close enough (0x0aa0000f for
+vector was); the floated fence word was close enough (0x0aa0000f for
 rw,rw: wrong in both nibble value and method; the ch. 35 rows on p. 610 give
 RW=0011 via the TSO row and W=0001 via the PAUSE row, so bare rw,rw is
 0x0330000f, and those rows prove it without any bit-order sentence at all).

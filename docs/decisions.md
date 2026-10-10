@@ -502,9 +502,8 @@ Consequences:
 
 ## D20: instruction misalignment is a fetch-stage halt, not a jump-reported exception
 
-2026-10-03. ISS/RTL convention. Status: decided by the owner on the agent
-recommendation; ISS behavior in place since step 3 (d126bf2); reopen
-condition explicit.
+2026-10-03. ISS/RTL convention. Status: decided; ISS behavior in place
+since step 3 (d126bf2); reopen condition explicit.
 
 Decision: a taken branch or jump to an address not four-byte aligned halts
 the hart at the fetch of the target (pc&3 check before the read), not on the
@@ -526,8 +525,8 @@ the jump the faulting pc; revisit here with a dated correction.
 
 ## D21: CSR surface is mhartid only; write attempts and unknown addresses halt illegal
 
-2026-10-03. ISS step 4, RTL M1 obligation. Status: decided by the owner on
-the agent proposal; ISS vectors in the step-4 commit.
+2026-10-03. ISS step 4, RTL M1 obligation. Status: decided; ISS vectors in
+the step-4 commit (5329725).
 
 Decision: exactly one CSR exists: mhartid 0xF14, read-only, value = hart
 index (priv 20250508 3.1.5 pp. 28-29; MRO row in the §2.1 map, p. 12). Every
@@ -541,3 +540,31 @@ consistent with D19); devices stay MMIO, nothing else needs a CSR; RTL M1's
 csr unit is a mux to the hart index plus the same gates; the rd=x0 no-read
 rule is mutation-untestable until a side-effecting CSR exists and the ledger
 says so.
+
+## D22: sweep scoreboard is final state, marker protocol, expected table in I-RAM
+
+2026-10-05. tools/sweeps, tools/golden, contract 4b made concrete. Status:
+ISS-verified 2026-10-05; golden acceptance pending the page re-derivation.
+
+Decision: the ISA sweep scores by final state, not by in-program halts.
+PASS writes 0x50415353 at 0x6000 then ebreaks; every check that fails
+writes 0x4641494c then ebreaks, so a green run proves the checks were
+reachable. The golden is the full 32 KiB RAM hash plus all 32 registers
+plus the frozen-format trace; RTL M1 must reproduce all three. Expected
+constants live at 0x1000 in the I-RAM and are read with lw, standing on the
+contract section 4 load-port reading; results land in D-RAM slots 0x6020
+plus 4k.
+
+Rationale: ebreak-and-diff is the shape the ISS already produces, needs no
+new halt vocabulary, and gives the M1 tb one comparison with no handshake.
+Marker-before-ebreak keeps the pass/fail bit inside the RAM digest, so
+even a tb that prints nothing can recover the verdict from state. The
+sweeps deliberately exclude trap-ending semantics: a halt ends the program
+and there is no golden continuation; traps stay pinned by the 116 unit
+checks.
+
+Consequences: if the page re-derivation disagrees with any expected
+word, the word changes in tools/sweeps and the goldens regenerate; the
+device-callback finish signal that the roadmap sketch allowed is not needed
+under this convention; the Phase 8 loader must not write the I-RAM table
+region at runtime (single-writer discipline: config-time init only).

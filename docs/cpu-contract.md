@@ -85,7 +85,11 @@ hart1 segment (APU service):
   byte-enabled: 122 textures at 64x64 RGB332, or 30 at 128x128. This
   table is the running budget.
 - Access rules: 32-bit data and address; byte/half writes by lane mask;
-  unaligned access traps.
+  unaligned access traps. Loads read the hart's full 0x0000-0x7FFF span
+  including the I-RAM array (M10K true dual-port: fetch port plus load
+  port; the write path stays reserved for configuration init and the
+  Phase 8 loader). This is the assumption the tools/golden fixtures claim;
+  RTL M1 confirms or falsifies it.
 
 ## 5. Register interfaces and mailbox
 
@@ -253,6 +257,10 @@ it is defined.
    or the release gate in RTL, the checks must fail); regif partition (a
    hart1-addressed access from hart0's bus does not exist in hardware and
    the tb asserts hart0 cannot reach SCENE_SELECT).
+
+4b. TB completion convention: Sweep programs must end in an ebreak; 
+    The TBs must mark all outputs along with the final state of each register and RAM block against the golden benchmark. Otherwise, per-instruction tracing can be implemented, with pre and post instruction states for comparison.
+
 5. RTL, two-stage harts (decided): milestone M1 is hart0 alone through the
    ISA sweep; M2 adds hart1, the mailbox, and the protocol suite. Lint -Wall
    clean. Tree layout decided 2026-10-05: rtl/apu_pkg.sv at the rtl root,
@@ -282,9 +290,10 @@ the faulting/current PC and `inst_word` is the fetched word when one was
 available; both are empty when unavailable. Halt rows are emitted for
 `ebreak`, `ecall`, `illegal`, `budget`, and `bus`.
 
-## 10. OPEN (owner)
+## 10. OPEN
 
 - Mailbox depth: single slot v1 vs small FIFO.
 - M extension timing: after M1 or after M2.
 - First mailbox message set (what the game hart actually asks the APU hart
   for; define with the first game, not before).
+

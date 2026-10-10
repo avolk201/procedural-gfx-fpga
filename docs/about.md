@@ -6,7 +6,7 @@ permalink: /about/
 
 This site archives technical post-mortems for the [procedural-gfx-fpga](https://github.com/avolk201/procedural-gfx-fpga) repository.
 
-It documents architectural decisions, static timing analysis (STA), and verification methodology for a framebuffer-less graphics pipeline, and for an RV32I_Zicsr core in progress (contract, assembler, and ISS done; core RTL not started), targeting the Terasic DE10-Nano (Cyclone V 5CSEBA6U23I7).
+It documents architectural decisions, static timing analysis (STA), and verification methodology for a framebuffer-less graphics pipeline, and for an RV32I_Zicsr core in progress (contract, assembler, ISS, and sweep goldens done; core RTL not started), targeting the Terasic DE10-Nano (Cyclone V 5CSEBA6U23I7).
 
 The focus is strictly on RTL design, SystemVerilog verification against golden models, and hardware bring-up.
 
