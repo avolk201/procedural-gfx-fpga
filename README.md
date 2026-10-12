@@ -149,7 +149,7 @@ What was not measured, stated as absence:
 5. Games: an interactive raycaster demo, then small original games.
 
 Every phase ships a contract doc, a golden model and a self-checking
-testbench that has been seen fail at least once. Nothing lands on vibes.
+testbench that has been seen fail at least once.
 
 ## Docs
 
