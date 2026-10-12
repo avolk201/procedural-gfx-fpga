@@ -125,7 +125,6 @@ what carry provenance; the v0.1.0 phone photo lives in the release assets,
 its EXIF stripped too.
 
 What was not measured, stated as absence:
-- Monitor model (2026-09-23) and OLED model (2026-09-25) are unrecorded.
 - No oscilloscope capture of pixel clock or syncs; timing evidence is the
   counter measurements in `make sim` plus a picture on a live display.
 - No logic-analyzer capture of the physical I2C bus; wire-level claims come
